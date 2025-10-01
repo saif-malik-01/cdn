@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/html", async (req, res) => {
+app.get("/html", async (_, res) => {
   await new Promise((resolve) => setTimeout(resolve, 3000));
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });

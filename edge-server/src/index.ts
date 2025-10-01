@@ -1,4 +1,4 @@
-import fs from "fs";
+import * as fs from "node:fs";
 import http2 from "http2";
 
 import computeCacheKey from "./cacheKey.js";
@@ -45,7 +45,7 @@ server.on("stream", async (stream, headers) => {
 
     stream.respond({
       ":status": 200,
-      "content-type": headers["content-type"],
+      "content-type": headers.get("content-type") || "text/html",
       "cache-status": `local; miss`,
     });
     stream.end("miss");
