@@ -4,7 +4,7 @@ import http2 from "http2";
 import computeCacheKey from "./cacheKey.js";
 import parseRequest from "./requestParser.js";
 import { validateMethod } from "./validate.js";
-import { getCache } from "./memoCache.js";
+import { getCache, setCache } from "./memoCache.js";
 
 const options = {
   key: fs.readFileSync("./certs/key.pem"),
@@ -14,14 +14,14 @@ const options = {
 
 const server = http2.createSecureServer(options);
 
-server.on("stream", (stream, headers) => {
+server.on("stream", async (stream, headers) => {
   const reqMeta = parseRequest(headers);
   const cacheKey = computeCacheKey(reqMeta);
 
   if (validateMethod(reqMeta.method)) {
     stream.respond({
       ":status": 405,
-      "content-type": "text/plain",
+      "content-type": headers["content-type"],
       allow: "GET, HEAD",
     });
     stream.end(`405 Method ${reqMeta.method} Not Allowed`);
@@ -30,17 +30,37 @@ server.on("stream", (stream, headers) => {
 
   const cache = getCache(cacheKey);
   if (!cache) {
+    const originResponse = await fetch("http://localhost:3001/html");
+    const file = Buffer.from(await originResponse.arrayBuffer());
+    const headers = originResponse.headers;
+
+    setCache(cacheKey, {
+      size: headers.get("content-length") || file.length,
+      expires: Date.now() + 60000,
+      etag: headers.get("etag") || "",
+      path: file,
+      source: "memory",
+      headers,
+    });
+
     stream.respond({
       ":status": 200,
-      "content-type": "text/plain",
+      "content-type": headers["content-type"],
       "cache-status": `local; miss`,
     });
     stream.end("miss");
     return;
   }
 
-  stream.respond({ ":status": 200, "content-type": "text/plain" });
-  let body = `Edge server up. Cache key: ${cacheKey}\n`;
+  const cacheStatus = Date.now() > cache.expires ? "stale" : "hit";
+  const cacheHeaders = cache.headers || new Headers();
+
+  stream.respond({
+    ":status": 200,
+    "content-type": cacheHeaders.get("content-type"),
+    "cache-status": `local; ${cacheStatus}`,
+  });
+  let body = cache.path;
   if (reqMeta.method == "HEAD") body = undefined;
   stream.end(body);
 });

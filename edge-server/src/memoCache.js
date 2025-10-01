@@ -37,3 +37,17 @@ class LRUCache {
     return this.cache.size;
   }
 }
+
+const memoCache = new LRUCache(1000);
+
+export function getCache(key) {
+  return memoCache.get(key);
+}
+
+export function setCache(key, value) {
+  memoCache.set(key, value);
+}
+
+export function deleteCache(key) {
+  memoCache.delete(key);
+}
