@@ -1,18 +1,19 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 
 const app = express();
 const PORT = 3001;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.use(express.static(path.join(__dirname, "public")));
+const __ROOT = process.cwd();
 
 app.get("/html", async (_, res) => {
   await new Promise((resolve) => setTimeout(resolve, 3000));
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__ROOT, "public", "index.html"));
+});
+
+app.get("/image", async (_, res) => {
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+  res.sendFile(path.join(__ROOT, "public", "image.jpg"));
 });
 
 app.listen(PORT, () => {

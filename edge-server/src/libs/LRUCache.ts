@@ -1,4 +1,4 @@
-import type { CacheMeta } from "./types.js";
+import type { CacheMeta } from "../types.js";
 
 class LRUCache {
   limit;
@@ -47,8 +47,8 @@ export function getCache(key: string) {
   return memoCache.get(key);
 }
 
-export function setCache(key: string, value: CacheMeta) {
-  memoCache.set(key, value);
+export function setCache(key: string, value: Omit<CacheMeta, "createdAt">) {
+  memoCache.set(key, { ...value, createdAt: Date.now() });
 }
 
 export function deleteCache(key: string) {
