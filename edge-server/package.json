@@ -15,7 +15,8 @@
   "dependencies": {
     "fs": "^0.0.1-security",
     "http2": "^3.3.6",
-    "https": "^1.0.0"
+    "https": "^1.0.0",
+    "memfs": "^4.48.1"
   },
   "devDependencies": {
     "@types/node": "^24.6.1",

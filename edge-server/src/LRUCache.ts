@@ -1,12 +1,15 @@
-//value = { size, expires, etag, path, source, headers }
+import type { CacheMeta } from "./types.js";
 
 class LRUCache {
+  limit;
+  cache;
+
   constructor(limit = 100) {
     this.limit = limit;
     this.cache = new Map();
   }
 
-  get(key) {
+  get(key: string) {
     if (!this.cache.has(key)) return null;
     const value = this.cache.get(key);
     this.cache.delete(key);
@@ -14,7 +17,7 @@ class LRUCache {
     return value;
   }
 
-  set(key, value) {
+  set(key: string, value: CacheMeta) {
     if (this.cache.has(key)) {
       this.cache.delete(key);
     } else if (this.cache.size >= this.limit) {
@@ -25,11 +28,11 @@ class LRUCache {
     this.cache.set(key, value);
   }
 
-  delete(key) {
+  delete(key: string) {
     this.cache.delete(key);
   }
 
-  has(key) {
+  has(key: string) {
     return this.cache.has(key);
   }
 
@@ -40,14 +43,14 @@ class LRUCache {
 
 const memoCache = new LRUCache(1000);
 
-export function getCache(key) {
+export function getCache(key: string) {
   return memoCache.get(key);
 }
 
-export function setCache(key, value) {
+export function setCache(key: string, value: CacheMeta) {
   memoCache.set(key, value);
 }
 
-export function deleteCache(key) {
+export function deleteCache(key: string) {
   memoCache.delete(key);
 }
