@@ -1,0 +1,66 @@
+import type { CacheEntry } from "../cache/CacheEntry.js";
+import type { ServerHttp2Stream } from "http2";
+import { computeAge, convertBytesToMB } from "../utils/helpers.js";
+import { StorageStrategy } from "../storage/StorageStrategy.js";
+
+export class ResponseSerializer {
+  static async sendHit(stream: ServerHttp2Stream, entry: CacheEntry) {
+    const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
+    const body = await storage.get(entry.path);
+    const age = computeAge(entry);
+    stream.respond({
+      ":status": 200,
+      "content-type":
+        entry.headers.get("content-type") || "application/octet-stream",
+      "cache-status": "local; hit",
+      age: String(age),
+    });
+    stream.end(body);
+  }
+
+  static sendMiss(stream: ServerHttp2Stream, body: Buffer) {
+    stream.respond({
+      ":status": 200,
+      "cache-status": "local; miss",
+      age: "0",
+    });
+    stream.end(body);
+  }
+
+  static sendBypass(stream: ServerHttp2Stream, originResponse: Response) {
+    stream.respond({
+      ":status": 200,
+      "cache-status": "local; bypass",
+      age: "0",
+    });
+    stream.end(originResponse.body);
+  }
+
+  static async sendSWR(stream: ServerHttp2Stream, entry: CacheEntry) {
+    const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
+    const body = await storage.get(entry.path);
+    const age = computeAge(entry);
+    stream.respond({
+      ":status": 200,
+      "content-type":
+        entry.headers.get("content-type") || "application/octet-stream",
+      "cache-status": "local; stale-while-revalidate",
+      age: String(age),
+    });
+    stream.end(body);
+  }
+
+  static sendNotAllowed(stream: ServerHttp2Stream) {
+    stream.respond({
+      ":status": 405,
+      "content-type": "text/plain",
+      allow: "GET, HEAD",
+    });
+    stream.end("405: Method Not Allowed");
+  }
+
+  static sendError(stream: ServerHttp2Stream, error: Error) {
+    stream.respond({ ":status": 502 });
+    stream.end("Bad Gateway: " + error.message);
+  }
+}
