@@ -11,6 +11,7 @@ import { CacheKey } from "./cache/CacheKey.js";
 import { RequestValidator } from "./http/RequestValidator.js";
 import { StorageStrategy } from "./storage/StorageStrategy.js";
 import { convertBytesToMB } from "./utils/helpers.js";
+import { register as pRegister } from "./utils/metrics.js";
 
 const options = {
   key: fs.readFileSync("./certs/key.pem"),
@@ -22,6 +23,18 @@ const server = http2.createSecureServer(options);
 
 server.on("stream", async (stream, headers) => {
   const req = RequestParser.parse(headers);
+  console.log(req);
+  
+
+  if (req.path === "/metrics" && req.method == "GET") {
+    const metrics = await pRegister.metrics();
+    stream.respond({
+      "content-type": pRegister.contentType,
+      ":status": 200,
+    });
+    stream.end(metrics);
+    return;
+  }
 
   // ------------------------
   // NOT ALLOWED: method not allowed
@@ -38,7 +51,7 @@ server.on("stream", async (stream, headers) => {
   // MISS: get, save and send the latest
   // ------------------------
   if (!entry) {
-    const originResponse = await OriginFetcher.get(req.path);
+    const originResponse = await OriginFetcher.fetch(req.path);
     const body = await CacheManager.set(cacheKey, originResponse);
     await ResponseSerializer.sendMiss(stream, body);
     return;
@@ -60,7 +73,7 @@ server.on("stream", async (stream, headers) => {
   }
 
   try {
-    const originResponse = await OriginFetcher.get(
+    const originResponse = await OriginFetcher.fetch(
       req.path,
       entry.etag
         ? { "if-none-match": entry.etag }
@@ -85,7 +98,7 @@ server.on("stream", async (stream, headers) => {
       ResponseSerializer.sendMiss(stream, body);
     }
   } catch (e: any) {
-    log(e)
+    log(e);
     ResponseSerializer.sendError(stream, e);
   }
 });
