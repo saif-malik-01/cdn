@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import http2 from "http2";
-import { CONFIG } from "./config.js";
+
 import { RequestParser } from "./http/RequestParser.js";
 import { CacheManager } from "./cache/CacheManager.js";
 import { CachePolicy } from "./cache/CachePolicy.js";
@@ -10,8 +10,7 @@ import { log } from "./utils/logger.js";
 import { CacheKey } from "./cache/CacheKey.js";
 import { RequestValidator } from "./http/RequestValidator.js";
 import { StorageStrategy } from "./storage/StorageStrategy.js";
-import { computeAge, convertBytesToMB } from "./utils/helpers.js";
-import type { SourceType } from "./types.js";
+import { convertBytesToMB } from "./utils/helpers.js";
 
 const options = {
   key: fs.readFileSync("./certs/key.pem"),
@@ -27,7 +26,7 @@ server.on("stream", async (stream, headers) => {
   // ------------------------
   // NOT ALLOWED: method not allowed
   // ------------------------
-  if (!RequestValidator.validateMethod(req.method)) {
+  if (RequestValidator.validateMethod(req.method)) {
     ResponseSerializer.sendNotAllowed(stream);
     return;
   }
@@ -36,69 +35,57 @@ server.on("stream", async (stream, headers) => {
   const entry = await CacheManager.get(cacheKey);
 
   // ------------------------
-  // HIT: serve from cache
+  // MISS: get, save and send the latest
   // ------------------------
-  if (entry && CachePolicy.isFresh(entry)) {
-    ResponseSerializer.sendHit(stream, entry);
+  if (!entry) {
+    const originResponse = await OriginFetcher.get(req.path);
+    const body = await CacheManager.set(cacheKey, originResponse);
+    await ResponseSerializer.sendMiss(stream, body);
     return;
   }
 
+  // ------------------------
+  // HIT: serve from cache
+  // ------------------------
+  if (CachePolicy.isFresh(entry)) {
+    await ResponseSerializer.sendHit(stream, entry);
+    return;
+  }
+
+  // ------------------------
+  // SWR: serve from cache but revalidate
+  // ------------------------
+  if (CachePolicy.canServeStaleWhileRevalidate(entry)) {
+    ResponseSerializer.sendHit(stream, entry);
+  }
+
   try {
-    if (entry && CachePolicy.canServeStaleWhileRevalidate(entry)) {
-      ResponseSerializer.sendSWR(stream, entry);
-    }
-
-    const originResponse = await OriginFetcher.fetch(
-      CONFIG.originUrl + req.path
+    const originResponse = await OriginFetcher.get(
+      req.path,
+      entry.etag
+        ? { "if-none-match": entry.etag }
+        : entry.lastModified
+        ? { "if-modified-since": entry.lastModified }
+        : {}
     );
-    const originHeaders = originResponse.headers;
-    const originBody = Buffer.from(await originResponse.arrayBuffer());
 
-    // reponse no-store
-    if (originHeaders.get("Cache-Control")?.includes("no-store")) {
-      ResponseSerializer.sendBypass(stream, originResponse);
+    // ------------------------
+    // SWI: serve from cache
+    // ------------------------
+    if (!originResponse.ok && CachePolicy.canServeStaleIfError(entry)) {
+      const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
+      const body = await storage.get(cacheKey);
+      ResponseSerializer.sendMiss(stream, body);
       return;
     }
 
-    const contentLengthMB = convertBytesToMB(
-      Number(originHeaders.get("content-length"))
-    );
+    const body = await CacheManager.set(cacheKey, originResponse);
 
-    const storage = StorageStrategy.decide(contentLengthMB);
-
-    let source: SourceType = "memory";
-    if (contentLengthMB > CONFIG.cacheLimitMB) {
-      source = "disk";
+    if (!CachePolicy.canServeStaleWhileRevalidate(entry)) {
+      ResponseSerializer.sendMiss(stream, body);
     }
-
-    const path = await storage.save(cacheKey, originBody);
-
-    const cc = RequestParser.parseCacheControl(
-      originHeaders.get("Cache-Control")
-    );
-
-    let maxAge = cc.maxAge;
-    if (!maxAge) {
-      maxAge = Date.parse(originHeaders.get("Expires") || "") - Date.now();
-      if (isNaN(maxAge) || maxAge < 0) maxAge = 0;
-    }
-
-    CacheManager.set(cacheKey, {
-      size: Number(originHeaders.get("content-length")),
-      expires: Date.now() + maxAge,
-      lastModified: originHeaders.get("last-modified") || "",
-      etag: originHeaders.get("etag") || "",
-      path,
-      source,
-      headers: originHeaders,
-      maxAge,
-      staleWhileRevalidate: cc.staleWhileRevalidate || 0,
-      staleIfError: cc.staleIfError || 0,
-      key: cacheKey,
-    });
-
-    ResponseSerializer.sendMiss(stream, originBody);
   } catch (e: any) {
+    log(e)
     ResponseSerializer.sendError(stream, e);
   }
 });

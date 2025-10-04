@@ -1,6 +1,8 @@
+import { CONFIG } from "../config.js";
+
 export class OriginFetcher {
-  static async fetch(url: string, headers: Record<string, string> = {}) {
-    const res = await fetch(url, { headers });
+  static async get(url: string, headers: Record<string, string> = {}) {
+    const res = await fetch(CONFIG.originUrl + url, { headers });
     return res;
   }
 }

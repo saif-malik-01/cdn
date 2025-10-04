@@ -12,8 +12,8 @@ export class RequestParser {
   static parse(headers: IncomingHttpHeaders): ParsedRequest {
     return {
       method: headers[":method"] || "GET",
-      host: headers[":authority"] || "",
-      path: headers[":path"]?.split("?")[0] || "/",
+      host: headers[":authority"] || "/",
+      path: headers[":path"]?.split("?")[0] || "",
       query: Object.fromEntries(
         new URL("https://dummy" + headers[":path"]).searchParams
       ),

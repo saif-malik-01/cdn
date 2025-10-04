@@ -6,19 +6,18 @@ import { StorageStrategy } from "../storage/StorageStrategy.js";
 export class ResponseSerializer {
   static async sendHit(stream: ServerHttp2Stream, entry: CacheEntry) {
     const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
-    const body = await storage.get(entry.path);
+    const body = await storage.get(entry.key);
     const age = computeAge(entry);
     stream.respond({
       ":status": 200,
-      "content-type":
-        entry.headers.get("content-type") || "application/octet-stream",
+      "content-type": entry.headers.get("content-type") || "text/plain",
       "cache-status": "local; hit",
       age: String(age),
     });
     stream.end(body);
   }
 
-  static sendMiss(stream: ServerHttp2Stream, body: Buffer) {
+  static async sendMiss(stream: ServerHttp2Stream, body: Buffer | null) {
     stream.respond({
       ":status": 200,
       "cache-status": "local; miss",
@@ -34,20 +33,6 @@ export class ResponseSerializer {
       age: "0",
     });
     stream.end(originResponse.body);
-  }
-
-  static async sendSWR(stream: ServerHttp2Stream, entry: CacheEntry) {
-    const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
-    const body = await storage.get(entry.path);
-    const age = computeAge(entry);
-    stream.respond({
-      ":status": 200,
-      "content-type":
-        entry.headers.get("content-type") || "application/octet-stream",
-      "cache-status": "local; stale-while-revalidate",
-      age: String(age),
-    });
-    stream.end(body);
   }
 
   static sendNotAllowed(stream: ServerHttp2Stream) {

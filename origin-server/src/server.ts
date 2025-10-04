@@ -8,6 +8,7 @@ const __ROOT = process.cwd();
 
 app.get("/html", async (_, res) => {
   await new Promise((resolve) => setTimeout(resolve, 3000));
+  res.setHeader("Cache-Control","public, max-age=6")
   res.sendFile(path.join(__ROOT, "public", "index.html"));
 });
 
