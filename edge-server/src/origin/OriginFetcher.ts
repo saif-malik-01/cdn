@@ -59,7 +59,7 @@ export class OriginFetcher {
           throw new Error(`HTTP ${res.status}`);
         }
         timer();
-        return res.clone();
+        return res;
       } catch (err) {
         attempt++;
         if (attempt > RETRY_CONFIG.maxRetries) {
@@ -90,7 +90,7 @@ export class OriginFetcher {
 
     if (this._inFlight.has(fullURL)) {
       requestCoalescedTotal.inc();
-      return this._inFlight.get(fullURL)!;
+      return this._inFlight.get(fullURL)!.then(r => r.clone());;
     }
 
     const resPromise = this._fetchWithRetry(

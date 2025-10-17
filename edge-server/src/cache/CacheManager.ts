@@ -7,29 +7,36 @@ import type { CacheEntry } from "./CacheEntry.js";
 import { LRUCache } from "./LRUCache.js";
 
 export class CacheManager {
-  private static index = new LRUCache<string, CacheEntry>(1000);
+  private static index = new LRUCache<string, CacheEntry>(CONFIG.cacheLimit);
 
   static async get(key: string): Promise<CacheEntry | null> {
     return this.index.get(key) || null;
   }
 
   static async set(key: string, entry: Response): Promise<Buffer | null> {
+    console.log(key);
+
     const headers = entry.headers;
 
     const contentLengthMB = convertBytesToMB(
       Number(headers.get("content-length"))
     );
+
+    const body = Buffer.from(await entry.arrayBuffer());
+
+    if (contentLengthMB > CONFIG.cacheFileLimitMB) {
+      return body;
+    }
+
     const storage = StorageStrategy.decide(contentLengthMB);
 
     let path = "";
-    let body = null;
     if (entry.status == 200) {
-      body = Buffer.from(await entry.arrayBuffer());
       path = await storage.save(key, body);
     }
 
     let source: SourceType = "memory";
-    if (contentLengthMB > CONFIG.cacheLimitMB) {
+    if (contentLengthMB > CONFIG.memoryThresholdMB) {
       source = "disk";
     }
 
@@ -63,7 +70,10 @@ export class CacheManager {
       return null;
     }
 
-    this.index.set(key, cache);
+    const evictionKey = this.index.set(key, cache);
+    if (evictionKey) {
+      storage.delete(evictionKey);
+    }
     return body;
   }
 

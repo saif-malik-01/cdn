@@ -15,12 +15,14 @@ export class LRUCache<K, V> {
     return val;
   }
 
-  set(key: K, val: V) {
+  set(key: K, val: V): K | null {
+    let firstKey: K | null = null;
     if (this.map.size >= this.max) {
-      const firstKey = this.map.keys().next().value!;
+      firstKey = this.map.keys().next().value as K;
       this.map.delete(firstKey);
     }
     this.map.set(key, val);
+    return firstKey;
   }
 
   delete(key: K) {

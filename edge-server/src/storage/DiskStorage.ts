@@ -22,4 +22,10 @@ export class DiskStorage implements Storage {
     const file = await fs.promises.readFile(filepath);
     return file as Buffer;
   }
+
+  async delete(key: string): Promise<void> {
+    const hashedKey = hashKey(key);
+    const filepath = path.join(cacheDir, hashedKey);
+    await fs.promises.rm(filepath);
+  }
 }

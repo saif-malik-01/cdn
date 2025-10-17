@@ -52,8 +52,8 @@ server.on("stream", async (stream, headers) => {
   // ------------------------
   if (!entry) {
     const originResponse = await OriginFetcher.fetch(req.path);
-    const body = await CacheManager.set(cacheKey, originResponse);
-    await ResponseSerializer.sendMiss(stream, body);
+    const data = await CacheManager.set(cacheKey, originResponse);
+    await ResponseSerializer.sendMiss(stream, data);
     return;
   }
 
@@ -69,7 +69,7 @@ server.on("stream", async (stream, headers) => {
   // SWR: serve from cache but revalidate
   // ------------------------
   if (CachePolicy.canServeStaleWhileRevalidate(entry)) {
-    ResponseSerializer.sendHit(stream, entry);
+    ResponseSerializer.sendSWR(stream, entry);
   }
 
   try {
