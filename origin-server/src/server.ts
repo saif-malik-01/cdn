@@ -21,7 +21,7 @@ app.get("/image", async (_, res) => {
   await new Promise((resolve) => setTimeout(resolve, 3000));
    res.setHeader(
     "Cache-Control",
-    "public, max-age=10, stale-while-revalidate=10"
+    "public, max-age=10, stale-if-error=10"
   );
   res.sendFile(path.join(__ROOT, "public", "image.jpg"));
 });

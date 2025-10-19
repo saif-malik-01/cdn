@@ -48,6 +48,15 @@ export class ResponseSerializer {
     stream.end(body);
   }
 
+  static async sendSIE(stream: ServerHttp2Stream, body: Buffer | null) {
+    stream.respond({
+      ":status": 200,
+      "cache-status": "local; sie",
+      age: "0",
+    });
+    stream.end(body);
+  }
+
   static async sendMiss(stream: ServerHttp2Stream, body: Buffer | null) {
     stream.respond({
       ":status": 200,

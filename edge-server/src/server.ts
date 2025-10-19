@@ -81,27 +81,27 @@ server.on("stream", async (stream, headers) => {
         : {}
     );
 
-    // ------------------------
-    // SWI: serve from cache
-    // ------------------------
-    if (!originResponse.ok && CachePolicy.canServeStaleIfError(entry)) {
-      const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
-      const body = await storage.get(cacheKey);
-      ResponseSerializer.sendMiss(stream, body);
-      return;
-    }
-
-    const body = await CacheManager.set(cacheKey, originResponse);
+    const body = await CacheManager.set(cacheKey, originResponse as Response);
 
     if (!CachePolicy.canServeStaleWhileRevalidate(entry)) {
-      ResponseSerializer.sendMiss(stream, body);
+      await ResponseSerializer.sendMiss(stream, body);
     }
   } catch (e: any) {
     log(e);
+    if (CachePolicy.canServeStaleWhileRevalidate(entry)) return;
+    // ------------------------
+    // SIE: serve stale while error
+    // ------------------------
+    if (CachePolicy.canServeStaleIfError(entry)) {
+      const storage = StorageStrategy.decide(convertBytesToMB(entry.size));
+      const body = await storage.get(cacheKey);
+      ResponseSerializer.sendSIE(stream, body);
+      return;
+    }
     ResponseSerializer.sendError(stream, e);
   }
 });
 
-server.listen(8443, '0.0.0.0', () => {
+server.listen(8443, "0.0.0.0", () => {
   log("Edge server running at https://localhost:8443");
 });
