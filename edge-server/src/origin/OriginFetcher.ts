@@ -15,7 +15,7 @@ import { computeActiveRequests } from "../utils/helpers.js";
 const AGENT_CONFIG = {
   keepAliveTimeout: 10_000,
   keepAliveMaxTimeout: 60_000,
-  connections: 10,
+  connections: 100,
   pipelining: 0,
 };
 
@@ -90,7 +90,7 @@ export class OriginFetcher {
 
     if (this._inFlight.has(fullURL)) {
       requestCoalescedTotal.inc();
-      return this._inFlight.get(fullURL)!.then(r => r.clone());;
+      return this._inFlight.get(fullURL)!.then((r) => r.clone());
     }
 
     const resPromise = this._fetchWithRetry(

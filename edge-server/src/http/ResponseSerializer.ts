@@ -66,15 +66,6 @@ export class ResponseSerializer {
     stream.end(body);
   }
 
-  static sendBypass(stream: ServerHttp2Stream, originResponse: Response) {
-    stream.respond({
-      ":status": 200,
-      "cache-status": "local; bypass",
-      age: "0",
-    });
-    stream.end(originResponse.body);
-  }
-
   static sendNotAllowed(stream: ServerHttp2Stream) {
     stream.respond({
       ":status": 405,
