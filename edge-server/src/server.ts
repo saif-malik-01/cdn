@@ -12,6 +12,7 @@ import { RequestValidator } from "./http/RequestValidator.js";
 import { StorageStrategy } from "./storage/StorageStrategy.js";
 import { convertBytesToMB } from "./utils/helpers.js";
 import { register as pRegister } from "./utils/metrics.js";
+await CacheManager.initialize();
 
 const options = {
   key: fs.readFileSync("./certs/key.pem"),
@@ -23,8 +24,6 @@ const server = http2.createSecureServer(options);
 
 server.on("stream", async (stream, headers) => {
   const req = RequestParser.parse(headers);
-  console.log(req);
-  
 
   if (req.path === "/metrics" && req.method == "GET") {
     const metrics = await pRegister.metrics();
@@ -103,6 +102,6 @@ server.on("stream", async (stream, headers) => {
   }
 });
 
-server.listen(8443, () => {
+server.listen(8443, '0.0.0.0', () => {
   log("Edge server running at https://localhost:8443");
 });

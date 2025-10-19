@@ -23,6 +23,11 @@ export class MemoryStorage implements Storage {
     return file as Buffer;
   }
 
+  getPath(key: string): string {
+    const hashedKey = hashKey(key);
+    return path.join(cacheDir, hashedKey);
+  }
+
   async delete(key: string): Promise<void> {
     const hashedKey = hashKey(key);
     const filepath = path.join(cacheDir, hashedKey);

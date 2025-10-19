@@ -1,3 +1,4 @@
+import { CONFIG } from "../config.js";
 import { DiskStorage } from "./DiskStorage.js";
 import { MemoryStorage } from "./MemoryStorage.js";
 
@@ -7,7 +8,7 @@ export interface Storage {
 }
 
 export class StorageStrategy {
-  static decide(sizeMB: number, thresholdMB: number = 1) {
+  static decide(sizeMB: number, thresholdMB: number = CONFIG.memoryThresholdMB) {
     if (sizeMB > thresholdMB) {
       return new DiskStorage();
     } else {

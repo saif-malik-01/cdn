@@ -7,7 +7,7 @@ export interface CacheEntry {
   staleIfError: number;
   lastModified?: string;
   etag?: string;
-  headers: Headers;
+  headers: Record<string, string>;
   path: string;
   source: "memory" | "disk";
 }

@@ -10,7 +10,7 @@ import {
   originActiveConnections,
   requestCoalescedTotal,
 } from "../utils/metrics.js";
-import { getActiveRequests } from "../utils/helpers.js";
+import { computeActiveRequests } from "../utils/helpers.js";
 
 const AGENT_CONFIG = {
   keepAliveTimeout: 10_000,
@@ -86,7 +86,7 @@ export class OriginFetcher {
     const fullURL = baseURL + url;
     const dispatcher = this._getDispatcher(baseURL);
 
-    originActiveConnections.set(getActiveRequests(dispatcher));
+    originActiveConnections.set(computeActiveRequests(dispatcher));
 
     if (this._inFlight.has(fullURL)) {
       requestCoalescedTotal.inc();

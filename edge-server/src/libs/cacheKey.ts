@@ -12,3 +12,7 @@ export default function computeCacheKey(reqMeta: RequestMeta) {
 export function hashKey(key: string) {
   return crypto.createHash("sha256").update(key).digest("hex");
 }
+
+export function generateRandomKey() {
+  return crypto.randomBytes(6).toString("hex");
+}
