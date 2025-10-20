@@ -15,7 +15,7 @@ import { computeActiveRequests } from "../utils/helpers.js";
 const AGENT_CONFIG = {
   keepAliveTimeout: 10_000,
   keepAliveMaxTimeout: 60_000,
-  connections: 100,
+  connections: 10,
   pipelining: 0,
 };
 
@@ -26,9 +26,15 @@ const RETRY_CONFIG = {
   retryOnHttpError: true,
 };
 
+interface CahedResponse {
+    status: number;
+    headers: Headers;
+    body: Buffer<ArrayBuffer>;
+}
+
 export class OriginFetcher {
   static _dispatchers = new Map<string, Agent>();
-  static _inFlight = new Map<string, Promise<Response>>();
+  static _inFlight = new Map<string, Promise<CahedResponse>>();
 
   static _getDispatcher(baseURL: string): Agent {
     if (this._dispatchers.has(baseURL)) {
@@ -79,30 +85,44 @@ export class OriginFetcher {
   }
 
   static async fetch(
-    url: string,
-    headers: Record<string, string> = {}
-  ): Promise<Response> {
-    const baseURL = CONFIG.originUrl;
-    const fullURL = baseURL + url;
-    const dispatcher = this._getDispatcher(baseURL);
+  url: string,
+  headers: Record<string, string> = {}
+): Promise<Response> {
+  const baseURL = CONFIG.originUrl;
+  const fullURL = baseURL + url;
+  const dispatcher = this._getDispatcher(baseURL);
 
-    originActiveConnections.set(computeActiveRequests(dispatcher));
+  originActiveConnections.set(computeActiveRequests(dispatcher));
 
-    if (this._inFlight.has(fullURL)) {
-      requestCoalescedTotal.inc();
-      return this._inFlight.get(fullURL)!.then((r) => r.clone());
-    }
+  if (this._inFlight.has(fullURL)) {
+    requestCoalescedTotal.inc();
+    const cachedResponse = await this._inFlight.get(fullURL)!;
+    return new Response(cachedResponse.body.subarray(0), {
+      status: cachedResponse.status,
+      headers: cachedResponse.headers,
+    });
+  }
 
-    const resPromise = this._fetchWithRetry(
-      fullURL,
-      headers,
-      dispatcher
-    ).finally(() => {
+  const resPromise = this._fetchWithRetry(fullURL, headers, dispatcher)
+    .then(async (res) => {
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return {
+        status: res.status,
+        headers: res.headers,
+        body: buffer,
+      };
+    })
+    .finally(() => {
       this._inFlight.delete(fullURL);
     });
 
-    this._inFlight.set(fullURL, resPromise);
+  this._inFlight.set(fullURL, resPromise);
 
-    return resPromise;
-  }
+  const cached = await resPromise;
+  return new Response(cached.body.subarray(0), {
+    status: cached.status,
+    headers: cached.headers,
+  });
+}
+
 }
