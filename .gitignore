@@ -11,3 +11,6 @@ certs/
 
 # prometheus
 prometheus/
+
+# geo data
+*.mmdb
