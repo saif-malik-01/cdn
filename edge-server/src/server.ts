@@ -25,6 +25,15 @@ const server = http2.createSecureServer(options);
 server.on("stream", async (stream, headers) => {
   const req = RequestParser.parse(headers);
 
+  if (req.path === "/health" && req.method == "GET") {
+    stream.respond({
+      "content-type": "text/plain",
+      ":status": 200,
+    });
+    stream.end("Healthy");
+    return;
+  }
+
   if (req.path === "/metrics" && req.method == "GET") {
     const metrics = await pRegister.metrics();
     stream.respond({
@@ -100,6 +109,16 @@ server.on("stream", async (stream, headers) => {
     }
     ResponseSerializer.sendError(stream, e);
   }
+});
+
+server.on("request", (req, res) => {
+  if (req.url === "/health" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Healthy");
+    return;
+  }
+  res.writeHead(404);
+  res.end("Not found");
 });
 
 server.listen(8443, "0.0.0.0", () => {
